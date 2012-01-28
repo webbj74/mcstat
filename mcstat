@@ -2,7 +2,10 @@
 <?php
 
 /**
- * Reports memcache daemon statistics
+ * @file
+ * mcstat reports memcache daemon statistics
+ *
+ * @requires PHP CLI 5.2 or newer.
  *
  * Copyright 2011 Jonathan W. Webb
  *
@@ -20,10 +23,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-$hostname = "localhost";
-$port = 11211;
+define('DEFAULT_HOSTNAME', 'localhost');
+define('DEFAULT_PORT', 11211);
+exit(mcstat_main($argv, $argc));
 
-function mc_stats($fp) {
+function mcstat_stats($fp) {
   $data = array();
   fwrite($fp, "stats\r\n");
   while ($line = fgets($fp, 128)) {
@@ -36,45 +40,49 @@ function mc_stats($fp) {
   return $data;
 }
 
-
-$fp = fsockopen($hostname, $port, $errno, $errstr, 30);
-if (!$fp) {
-  echo "$errstr ($errno)" . PHP_EOL;
-}
-else {
-  $data = array();
-  printf("time      cnct        gets        hits        miss      hit%%       miss%%\n");
-  $start = mc_stats($fp);
-  $stat_time = strftime("%T", (int) $start['time']);
-  $data[$stat_time] = $start;
-  printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n\n",
-    $stat_time,
-    $start['curr_connections'],
-    $start['cmd_get'],
-    $start['get_hits'],
-    $start['get_misses'],
-    (($start['cmd_get'] > 0) ? ($start['get_hits']/$start['cmd_get']) : 0) * 100.0,
-    (($start['cmd_get'] > 0) ? ($start['get_misses']/$start['cmd_get']) : 0) * 100.0
-  );
-  sleep(60);
-
-  for ($i = 0; $i < 5; $i++) {
-    $tmp = mc_stats($fp);
-    $stat_time = strftime("%T", (int) $tmp['time']);
-    $stat_gets = $tmp['cmd_get'] - $start['cmd_get'];
-    $data[$stat_time] = $tmp;
-    printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n",
+function mcstat_main($argv, $argc) {
+  array_shift($argv);
+  $fp = fsockopen(DEFAULT_HOSTNAME, DEFAULT_PORT, $errno, $errstr, 30);
+  if (!$fp) {
+    echo "$errstr ($errno)" . PHP_EOL;
+    return $errno;
+  }
+  else {
+    $data = array();
+    printf("time      cnct        gets        hits        miss      hit%%       miss%%\n");
+    $start = mcstat_stats($fp);
+    $stat_time = strftime("%T", (int) $start['time']);
+    $data[$stat_time] = $start;
+    printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n\n",
       $stat_time,
-      $tmp['curr_connections'],
-      $stat_gets,
-      $tmp['get_hits'] - $start['get_hits'],
-      $tmp['get_misses'] - $start['get_misses'],
-      (($stat_gets > 0) ? (($tmp['get_hits'] - $start['get_hits'])/$stat_gets) : 0) * 100.0,
-      (($stat_gets > 0) ? (($tmp['get_misses'] - $start['get_misses'])/$stat_gets) : 0) * 100.0
+      $start['curr_connections'],
+      $start['cmd_get'],
+      $start['get_hits'],
+      $start['get_misses'],
+      (($start['cmd_get'] > 0) ? ($start['get_hits']/$start['cmd_get']) : 0) * 100.0,
+      (($start['cmd_get'] > 0) ? ($start['get_misses']/$start['cmd_get']) : 0) * 100.0
     );
     sleep(60);
+
+    for ($i = 0; $i < 5; $i++) {
+      $tmp = mcstat_stats($fp);
+      $stat_time = strftime("%T", (int) $tmp['time']);
+      $stat_gets = $tmp['cmd_get'] - $start['cmd_get'];
+      $data[$stat_time] = $tmp;
+      printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n",
+        $stat_time,
+        $tmp['curr_connections'],
+        $stat_gets,
+        $tmp['get_hits'] - $start['get_hits'],
+        $tmp['get_misses'] - $start['get_misses'],
+        (($stat_gets > 0) ? (($tmp['get_hits'] - $start['get_hits'])/$stat_gets) : 0) * 100.0,
+        (($stat_gets > 0) ? (($tmp['get_misses'] - $start['get_misses'])/$stat_gets) : 0) * 100.0
+      );
+      sleep(60);
+    }
+    fwrite($fp, "quit\r\n");
+    fclose($fp);
+    return 0;
   }
-  fwrite($fp, "quit\r\n");
-  fclose($fp);
 }
 
