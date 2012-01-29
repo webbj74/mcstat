@@ -25,6 +25,7 @@
 
 define('DEFAULT_HOSTNAME', 'localhost');
 define('DEFAULT_PORT', 11211);
+declare(ticks=1);
 exit(mcstat_main($argv, $argc));
 
 class mcstat_server
@@ -42,6 +43,15 @@ class mcstat_server
     if ($this->socket_ptr) {
       fwrite($this->socket_ptr, "quit\r\n");
       fclose($this->socket_ptr);
+      print 'Connection closed' . PHP_EOL;
+    }
+  }
+
+  function abort($signal) {
+    if ($signal === SIGINT || $signal === SIGTERM) {
+      print 'Aborting' . PHP_EOL;
+      $this->disconnect();
+      exit();
     }
   }
 
@@ -67,6 +77,8 @@ function mcstat_main($argv, $argc) {
 
   $srv = new mcstat_server();
   if (!($err = $srv->connect($hostname, $port))) {
+    pcntl_signal(SIGTERM, array($srv, 'abort'));
+    pcntl_signal(SIGINT, array($srv, 'abort'));
     $data = array();
     printf("time      cnct        gets        hits        miss      hit%%       miss%%\n");
     $start = $srv->get_all_stats();
