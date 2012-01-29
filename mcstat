@@ -27,30 +27,49 @@ define('DEFAULT_HOSTNAME', 'localhost');
 define('DEFAULT_PORT', 11211);
 exit(mcstat_main($argv, $argc));
 
-function mcstat_stats($fp) {
-  $data = array();
-  fwrite($fp, "stats\r\n");
-  while ($line = fgets($fp, 128)) {
-    if (preg_match('/^END/', $line)) {
-      break;
+class mcstat_server
+{
+  protected $socket_ptr = null;
+
+  function connect($hostname, $port) {
+    $this->socket_ptr = fsockopen($hostname, $port, $errno, $errstr, 30);
+    if (!$this->socket_ptr) {
+      return array('errno' => $errno, 'errstr' => $errstr);
     }
-    list($stat,$key,$value) = preg_split('/[\s]+/', $line, 3);
-    $data[$key] = $value;
   }
-  return $data;
+
+  function disconnect() {
+    if ($this->socket_ptr) {
+      fwrite($this->socket_ptr, "quit\r\n");
+      fclose($this->socket_ptr);
+    }
+  }
+
+  function get_all_stats() {
+    $data = array();
+    fwrite($this->socket_ptr, "stats\r\n");
+    while ($line = fgets($this->socket_ptr, 128)) {
+      if (preg_match('/^END/', $line)) {
+        break;
+      }
+      list($stat,$key,$value) = preg_split('/[\s]+/', $line, 3);
+      $data[$key] = $value;
+    }
+    return $data;
+  }
 }
 
 function mcstat_main($argv, $argc) {
-  array_shift($argv);
-  $fp = fsockopen(DEFAULT_HOSTNAME, DEFAULT_PORT, $errno, $errstr, 30);
-  if (!$fp) {
-    echo "$errstr ($errno)" . PHP_EOL;
-    return $errno;
-  }
-  else {
+
+  $command = basename($argv[0]);
+  $hostname = ($argc >= 2) ? ($argv[1]) : DEFAULT_HOSTNAME;
+  $port = ($argc >= 3) ? ($argv[2]) : DEFAULT_PORT;
+
+  $srv = new mcstat_server();
+  if (!($err = $srv->connect($hostname, $port))) {
     $data = array();
     printf("time      cnct        gets        hits        miss      hit%%       miss%%\n");
-    $start = mcstat_stats($fp);
+    $start = $srv->get_all_stats();
     $stat_time = strftime("%T", (int) $start['time']);
     $data[$stat_time] = $start;
     printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n\n",
@@ -62,10 +81,10 @@ function mcstat_main($argv, $argc) {
       (($start['cmd_get'] > 0) ? ($start['get_hits']/$start['cmd_get']) : 0) * 100.0,
       (($start['cmd_get'] > 0) ? ($start['get_misses']/$start['cmd_get']) : 0) * 100.0
     );
-    sleep(60);
+    sleep(5);
 
     for ($i = 0; $i < 5; $i++) {
-      $tmp = mcstat_stats($fp);
+      $tmp = $srv->get_all_stats();
       $stat_time = strftime("%T", (int) $tmp['time']);
       $stat_gets = $tmp['cmd_get'] - $start['cmd_get'];
       $data[$stat_time] = $tmp;
@@ -78,11 +97,15 @@ function mcstat_main($argv, $argc) {
         (($stat_gets > 0) ? (($tmp['get_hits'] - $start['get_hits'])/$stat_gets) : 0) * 100.0,
         (($stat_gets > 0) ? (($tmp['get_misses'] - $start['get_misses'])/$stat_gets) : 0) * 100.0
       );
-      sleep(60);
+      sleep(5);
     }
-    fwrite($fp, "quit\r\n");
-    fclose($fp);
-    return 0;
   }
+  else {
+    fprintf(STDERR, "%s: Connection to memcache daemon failed. Error %d: %s\n", $command, $err['errno'], $err['errstr']);
+    return $err['errno'];
+  }
+
+  $srv->disconnect();
+  return 0;
 }
 
