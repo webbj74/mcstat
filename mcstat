@@ -31,6 +31,34 @@ declare(ticks=1);
 
 exit(mcstat_main($argv, $argc));
 
+function hr_metric($value) {
+  if ($value > 1000000000) {
+    $value = sprintf("%dG", ($value/1000000000));
+  }
+  else if ($value > 1000000) {
+    $value = sprintf("%dM", ($value/1000000));
+  }
+  else if ($value > 1000) {
+    $value = sprintf("%dk", ($value/1000));
+  }
+  return $value;
+}
+
+function hr_binary($value) {
+  if ($value > 1073741824) {
+    $value = sprintf("%dG", ($value >> 30));
+  }
+  else if ($value > 1048576) {
+    $value = sprintf("%dM", ($value >> 20));
+  }
+  else if ($value > 1024) {
+    $value = sprintf("%dk", ($value >> 10));
+  }
+  return $value;
+}
+
+
+
 class mcstat_server
 {
   protected $socket_ptr = null;
@@ -42,6 +70,8 @@ class mcstat_server
       'cmd_get' => 0,
       'get_hits' => 0,
       'get_misses' => 0,
+      'bytes_read' => 0,
+      'bytes_written' => 0,
     );
   }
 
@@ -76,37 +106,50 @@ class mcstat_server
         break;
       }
       list($stat,$key,$value) = preg_split('/[\s]+/', $line, 3);
-      $data[$key] = $value;
+      $data[$key] = rtrim($value);
     }
     return $data;
   }
 
   function output_header() {
-    printf("time      cnct        gets        hits        miss      hit%%     miss%%\n");
+    printf("%8s  %4s  % 5s  % 5s  % 5s  % 6s  % 6s  % 5s  % 5s" . PHP_EOL,
+      'time',
+      'cnct',
+      'gets',
+      'hits',
+      'miss',
+      'hit%',
+      'miss%',
+      'in',
+      'out'
+    );
   }
 
   function output_stats($data) {
     $last = $this->last_data;
 
-    $data['time_string'] = strftime("%T", (int) $data['time']);
+    $data['time_string'] = strftime("%T", $data['time']);
     $data['get_total'] = $data['cmd_get'] - $last['cmd_get'];
     $data['get_hits_total'] = $data['get_hits'] - $last['get_hits'];
     $data['get_misses_total'] = $data['get_misses'] - $last['get_misses'];
     $data['get_hits_percentage'] = (($data['get_total'] > 0) ? (($data['get_hits'] - $last['get_hits'])/$data['get_total']) : 0) * 100.0;
     $data['get_misses_percentage'] = (($data['get_total'] > 0) ? (($data['get_misses'] - $last['get_misses'])/$data['get_total']) : 0) * 100.0;
+    $data['reads_total'] = $data['bytes_read'] - $last['bytes_read'];
+    $data['writes_total'] = $data['bytes_written'] - $last['bytes_written'];
 
-    printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f" . PHP_EOL,
+    printf("%8s  %4d  % 5s  % 5s  % 5s  % 6.2f  % 6.2f  % 5s  % 5s" . PHP_EOL,
       $data['time_string'],
       $data['curr_connections'],
-      $data['get_total'],
-      $data['get_hits_total'],
-      $data['get_misses_total'],
+      hr_metric($data['get_total']),
+      hr_metric($data['get_hits_total']),
+      hr_metric($data['get_misses_total']),
       $data['get_hits_percentage'],
-      $data['get_misses_percentage']
+      $data['get_misses_percentage'],
+      hr_binary($data['reads_total']),
+      hr_binary($data['writes_total'])
     );
     $this->last_data = $data;
   }
-
 }
 
 function mcstat_main($argv, $argc) {
