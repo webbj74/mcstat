@@ -25,7 +25,10 @@
 
 define('DEFAULT_HOSTNAME', 'localhost');
 define('DEFAULT_PORT', 11211);
+define('DEFAULT_INTERVAL', 5);
+
 declare(ticks=1);
+
 exit(mcstat_main($argv, $argc));
 
 class mcstat_server
@@ -92,7 +95,7 @@ class mcstat_server
     $data['get_hits_percentage'] = (($data['get_total'] > 0) ? (($data['get_hits'] - $last['get_hits'])/$data['get_total']) : 0) * 100.0;
     $data['get_misses_percentage'] = (($data['get_total'] > 0) ? (($data['get_misses'] - $last['get_misses'])/$data['get_total']) : 0) * 100.0;
 
-    printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n",
+    printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f" . PHP_EOL,
       $data['time_string'],
       $data['curr_connections'],
       $data['get_total'],
@@ -111,6 +114,7 @@ function mcstat_main($argv, $argc) {
   $command = basename($argv[0]);
   $hostname = ($argc >= 2) ? ($argv[1]) : DEFAULT_HOSTNAME;
   $port = ($argc >= 3) ? ($argv[2]) : DEFAULT_PORT;
+  $interval = DEFAULT_INTERVAL;
 
   $srv = new mcstat_server();
   if (!($err = $srv->connect($hostname, $port))) {
@@ -120,13 +124,12 @@ function mcstat_main($argv, $argc) {
     $srv->output_header();
     $srv->output_stats($data);
     print PHP_EOL;
-    sleep(5);
+    sleep($interval);
 
     while (1) {
       $data = $srv->get_all_stats();
       $srv->output_stats($data);
-      $last = $data;
-      sleep(5);
+      sleep($interval);
     }
   }
   else {
