@@ -31,6 +31,16 @@ exit(mcstat_main($argv, $argc));
 class mcstat_server
 {
   protected $socket_ptr = null;
+  protected $starting_data = array();
+  protected $last_data = array();
+
+  function __construct() {
+    $this->last_data = array(
+      'cmd_get' => 0,
+      'get_hits' => 0,
+      'get_misses' => 0,
+    );
+  }
 
   function connect($hostname, $port) {
     $this->socket_ptr = fsockopen($hostname, $port, $errno, $errstr, 30);
@@ -67,6 +77,33 @@ class mcstat_server
     }
     return $data;
   }
+
+  function output_header() {
+    printf("time      cnct        gets        hits        miss      hit%%     miss%%\n");
+  }
+
+  function output_stats($data) {
+    $last = $this->last_data;
+
+    $data['time_string'] = strftime("%T", (int) $data['time']);
+    $data['get_total'] = $data['cmd_get'] - $last['cmd_get'];
+    $data['get_hits_total'] = $data['get_hits'] - $last['get_hits'];
+    $data['get_misses_total'] = $data['get_misses'] - $last['get_misses'];
+    $data['get_hits_percentage'] = (($data['get_total'] > 0) ? (($data['get_hits'] - $last['get_hits'])/$data['get_total']) : 0) * 100.0;
+    $data['get_misses_percentage'] = (($data['get_total'] > 0) ? (($data['get_misses'] - $last['get_misses'])/$data['get_total']) : 0) * 100.0;
+
+    printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n",
+      $data['time_string'],
+      $data['curr_connections'],
+      $data['get_total'],
+      $data['get_hits_total'],
+      $data['get_misses_total'],
+      $data['get_hits_percentage'],
+      $data['get_misses_percentage']
+    );
+    $this->last_data = $data;
+  }
+
 }
 
 function mcstat_main($argv, $argc) {
@@ -79,38 +116,16 @@ function mcstat_main($argv, $argc) {
   if (!($err = $srv->connect($hostname, $port))) {
     pcntl_signal(SIGTERM, array($srv, 'abort'));
     pcntl_signal(SIGINT, array($srv, 'abort'));
-    $data = array();
-    printf("time      cnct        gets        hits        miss      hit%%     miss%%\n");
-    $start = $srv->get_all_stats();
-    $stat_time = strftime("%T", (int) $start['time']);
-    $data[$stat_time] = $start;
-    printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n\n",
-      $stat_time,
-      $start['curr_connections'],
-      $start['cmd_get'],
-      $start['get_hits'],
-      $start['get_misses'],
-      (($start['cmd_get'] > 0) ? ($start['get_hits']/$start['cmd_get']) : 0) * 100.0,
-      (($start['cmd_get'] > 0) ? ($start['get_misses']/$start['cmd_get']) : 0) * 100.0
-    );
-    $last = $start;
+    $data = $srv->get_all_stats();
+    $srv->output_header();
+    $srv->output_stats($data);
+    print PHP_EOL;
     sleep(5);
 
     while (1) {
-      $tmp = $srv->get_all_stats();
-      $stat_time = strftime("%T", (int) $tmp['time']);
-      $stat_gets = $tmp['cmd_get'] - $last['cmd_get'];
-      //$data[$stat_time] = $tmp;
-      printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n",
-        $stat_time,
-        $tmp['curr_connections'],
-        $stat_gets,
-        $tmp['get_hits'] - $last['get_hits'],
-        $tmp['get_misses'] - $last['get_misses'],
-        (($stat_gets > 0) ? (($tmp['get_hits'] - $last['get_hits'])/$stat_gets) : 0) * 100.0,
-        (($stat_gets > 0) ? (($tmp['get_misses'] - $last['get_misses'])/$stat_gets) : 0) * 100.0
-      );
-      $last = $tmp;
+      $data = $srv->get_all_stats();
+      $srv->output_stats($data);
+      $last = $data;
       sleep(5);
     }
   }
