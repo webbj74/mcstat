@@ -37,8 +37,36 @@ Example
     04:20:26     2      0      0      0    0.00    0.00      7    878
     04:20:31     2      0      0      0    0.00    0.00      7    878
     04:20:36     2     41     27     14   65.85   34.15    17k    80k
-    [Ctrl-C]
-    Aborting
+    ^C
+    Session Statistics:
+                 Statistic           Total         Session
+                    uptime      2h 13m 22s           1m 5s
+               rusage_user        0.001225        0.000112
+             rusage_system        0.002938        0.000125
+                   cmd_get             12M             215
+                   cmd_set               0               0
+                 cmd_flush               0               0
+                  get_hits               0             162
+                get_misses               0              53
+             delete_misses               0               0
+               delete_hits               0               0
+               incr_misses               0               0
+                 incr_hits               0               0
+               decr_misses               0               0
+                 decr_hits               0               0
+                cas_misses               0               0
+                  cas_hits               0               0
+                cas_badval               0               0
+                 auth_cmds               0               0
+               auth_errors               0               0
+                bytes_read              3G             86k
+             bytes_written            107G            424k
+       listen_disabled_num               0               0
+               conn_yields               0               0
+                curr_items               0               0
+               total_items               0               0
+                 evictions               0               0
+                 reclaimed               0               0
     Connection closed
     
 
