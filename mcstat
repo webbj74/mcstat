@@ -57,7 +57,20 @@ function hr_binary($value) {
   return $value;
 }
 
-
+function hr_time($seconds) {
+  $time_interval = array(
+    'd' => 86400,
+    'h' => 3600,
+    'm' => 60,
+  );
+  $output = '';
+  foreach ($time_interval as $key => $value) {
+    $$key = floor($seconds / $value);
+    $seconds -= ($$key * $value);
+    $output .= ($$key == 0) ? '' : $$key . "$key ";
+  }
+  return $output . $seconds . 's';
+}
 
 class mcstat_server
 {
@@ -92,7 +105,7 @@ class mcstat_server
 
   function abort($signal) {
     if ($signal === SIGINT || $signal === SIGTERM) {
-      print 'Aborting' . PHP_EOL;
+      print $this->output_stats_session();
       $this->disconnect();
       exit();
     }
@@ -129,7 +142,7 @@ class mcstat_server
 
   function output_stats_update() {
     $last = $this->last_data;
-    $data = $this->get_all_stats();
+    $data = $start = $this->get_all_stats();
 
     $data['time_string'] = strftime("%T", $data['time']);
     $data['get_total'] = $data['cmd_get'] - $last['cmd_get'];
@@ -155,13 +168,54 @@ class mcstat_server
     );
 
     if (!is_array($this->starting_data)) {
-      $output = $this->output_header() . $output . PHP_EOL;
-      $this->starting_data = $data;
+      $header = sprintf("Memcache version %s" . PHP_EOL, $start['version']);
+      $header .= sprintf("Max Memory Size: %s  Pointer size: %d bit" . PHP_EOL, hr_binary($start['limit_maxbytes']), $start['pointer_size']);
+      $output = $header . $this->output_header() . $output . PHP_EOL;
+      unset($start['version']);
+      unset($start['limit_maxbytes']);
+      unset($start['pointer_size']);
+      unset($start['time']);
+      unset($start['pid']);
+      $this->starting_data = $start;
     }
 
     print $output;
 
     $this->last_data = $data;
+  }
+
+  function output_stats_session() {
+    $output = PHP_EOL . "Session Statistics:" . PHP_EOL;
+    $output .= sprintf("%22s  % 14s  % 14s" . PHP_EOL,
+      "Statistic", "Total", "Session"
+    );
+    $last = $this->last_data;
+    $start = $this->starting_data;
+
+    foreach($start as $key => $value) {
+      $t_val = $value;
+      $s_val = $last[$key] - $start[$key];
+      switch ($key) {
+      case 'uptime':
+         $t_val = hr_time($t_val);
+         $s_val = hr_time($s_val);
+         break;
+      case 'bytes':
+      case 'bytes_read':
+      case 'bytes_written':
+         $t_val = hr_binary($t_val);
+         $s_val = hr_binary($s_val);
+         break;
+      default:
+         $t_val = hr_metric($t_val);
+         $s_val = hr_metric($s_val);
+         break;
+      }
+
+      $output .= sprintf("%22s  % 14s  % 14s" . PHP_EOL, $key, $t_val, $s_val);
+    }
+
+    return $output;
   }
 }
 
