@@ -62,8 +62,8 @@ function hr_binary($value) {
 class mcstat_server
 {
   protected $socket_ptr = null;
-  protected $starting_data = array();
-  protected $last_data = array();
+  protected $starting_data = null;
+  protected $last_data = null;
 
   function __construct() {
     $this->last_data = array(
@@ -112,9 +112,11 @@ class mcstat_server
   }
 
   function output_header() {
-    printf("%8s  %4s  % 5s  % 5s  % 5s  % 6s  % 6s  % 5s  % 5s" . PHP_EOL,
+    return sprintf(
+      "%8s  %4s  % 5s  % 5s  % 5s  % 5s  % 6s  % 6s  % 5s  % 5s" . PHP_EOL,
       'time',
       'cnct',
+      'used',
       'gets',
       'hits',
       'miss',
@@ -125,8 +127,9 @@ class mcstat_server
     );
   }
 
-  function output_stats($data) {
+  function output_stats_update() {
     $last = $this->last_data;
+    $data = $this->get_all_stats();
 
     $data['time_string'] = strftime("%T", $data['time']);
     $data['get_total'] = $data['cmd_get'] - $last['cmd_get'];
@@ -137,9 +140,11 @@ class mcstat_server
     $data['reads_total'] = $data['bytes_read'] - $last['bytes_read'];
     $data['writes_total'] = $data['bytes_written'] - $last['bytes_written'];
 
-    printf("%8s  %4d  % 5s  % 5s  % 5s  % 6.2f  % 6.2f  % 5s  % 5s" . PHP_EOL,
+    $output = sprintf(
+      "%8s  %4d  % 5s  % 5s  % 5s  % 5s  % 6.2f  % 6.2f  % 5s  % 5s" . PHP_EOL,
       $data['time_string'],
       $data['curr_connections'],
+      hr_binary($data['bytes']),
       hr_metric($data['get_total']),
       hr_metric($data['get_hits_total']),
       hr_metric($data['get_misses_total']),
@@ -148,6 +153,14 @@ class mcstat_server
       hr_binary($data['reads_total']),
       hr_binary($data['writes_total'])
     );
+
+    if (!is_array($this->starting_data)) {
+      $output = $this->output_header() . $output . PHP_EOL;
+      $this->starting_data = $data;
+    }
+
+    print $output;
+
     $this->last_data = $data;
   }
 }
@@ -163,15 +176,8 @@ function mcstat_main($argv, $argc) {
   if (!($err = $srv->connect($hostname, $port))) {
     pcntl_signal(SIGTERM, array($srv, 'abort'));
     pcntl_signal(SIGINT, array($srv, 'abort'));
-    $data = $srv->get_all_stats();
-    $srv->output_header();
-    $srv->output_stats($data);
-    print PHP_EOL;
-    sleep($interval);
-
     while (1) {
-      $data = $srv->get_all_stats();
-      $srv->output_stats($data);
+      $srv->output_stats_update();
       sleep($interval);
     }
   }
