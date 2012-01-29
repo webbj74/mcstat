@@ -169,7 +169,7 @@ class mcstat_server
 
     if (!is_array($this->starting_data)) {
       $header = sprintf("Memcache version %s" . PHP_EOL, $start['version']);
-      $header .= sprintf("Max Memory Size: %s  Pointer size: %d bit" . PHP_EOL, hr_binary($start['limit_maxbytes']), $start['pointer_size']);
+      $header .= sprintf("Max Memory Size: %s  Pointer size: %d bit" . PHP_EOL . PHP_EOL, hr_binary($start['limit_maxbytes']), $start['pointer_size']);
       $output = $header . $this->output_header() . $output . PHP_EOL;
       unset($start['version']);
       unset($start['limit_maxbytes']);

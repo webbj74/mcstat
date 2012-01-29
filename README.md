@@ -21,6 +21,9 @@ Example
 
     
     $ ./mcstat hostname-123 11211
+    Memcache version 1.4.5
+    Max Memory Size: 64M  Pointer size: 64 bit
+
     time      cnct   gets   hits   miss    hit%   miss%     in    out
     04:19:31     2    12M     9M     2M   75.42   24.58     3G   106G
 
