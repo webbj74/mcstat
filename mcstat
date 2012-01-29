@@ -80,7 +80,7 @@ function mcstat_main($argv, $argc) {
     pcntl_signal(SIGTERM, array($srv, 'abort'));
     pcntl_signal(SIGINT, array($srv, 'abort'));
     $data = array();
-    printf("time      cnct        gets        hits        miss      hit%%       miss%%\n");
+    printf("time      cnct        gets        hits        miss      hit%%     miss%%\n");
     $start = $srv->get_all_stats();
     $stat_time = strftime("%T", (int) $start['time']);
     $data[$stat_time] = $start;
@@ -93,22 +93,24 @@ function mcstat_main($argv, $argc) {
       (($start['cmd_get'] > 0) ? ($start['get_hits']/$start['cmd_get']) : 0) * 100.0,
       (($start['cmd_get'] > 0) ? ($start['get_misses']/$start['cmd_get']) : 0) * 100.0
     );
+    $last = $start;
     sleep(5);
 
-    for ($i = 0; $i < 5; $i++) {
+    while (1) {
       $tmp = $srv->get_all_stats();
       $stat_time = strftime("%T", (int) $tmp['time']);
-      $stat_gets = $tmp['cmd_get'] - $start['cmd_get'];
-      $data[$stat_time] = $tmp;
+      $stat_gets = $tmp['cmd_get'] - $last['cmd_get'];
+      //$data[$stat_time] = $tmp;
       printf("%s  %4d  %10d  %10d  %10d  %8.2f  %8.2f\n",
         $stat_time,
         $tmp['curr_connections'],
         $stat_gets,
-        $tmp['get_hits'] - $start['get_hits'],
-        $tmp['get_misses'] - $start['get_misses'],
-        (($stat_gets > 0) ? (($tmp['get_hits'] - $start['get_hits'])/$stat_gets) : 0) * 100.0,
-        (($stat_gets > 0) ? (($tmp['get_misses'] - $start['get_misses'])/$stat_gets) : 0) * 100.0
+        $tmp['get_hits'] - $last['get_hits'],
+        $tmp['get_misses'] - $last['get_misses'],
+        (($stat_gets > 0) ? (($tmp['get_hits'] - $last['get_hits'])/$stat_gets) : 0) * 100.0,
+        (($stat_gets > 0) ? (($tmp['get_misses'] - $last['get_misses'])/$stat_gets) : 0) * 100.0
       );
+      $last = $tmp;
       sleep(5);
     }
   }
