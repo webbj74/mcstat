@@ -25,7 +25,8 @@
 
 define('DEFAULT_HOSTNAME', 'localhost');
 define('DEFAULT_PORT', 11211);
-define('DEFAULT_INTERVAL', 5);
+define('DEFAULT_INTERVAL', 5); // seconds
+define('DEFAULT_HEADER_INTERVAL', 40); // lines
 
 declare(ticks=1);
 
@@ -229,12 +230,20 @@ function mcstat_main($argv, $argc) {
   $hostname = ($argc >= 2) ? ($argv[1]) : DEFAULT_HOSTNAME;
   $port = ($argc >= 3) ? ($argv[2]) : DEFAULT_PORT;
   $interval = DEFAULT_INTERVAL;
+  $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
 
   $srv = new mcstat_server();
   if (!($err = $srv->connect($hostname, $port))) {
     pcntl_signal(SIGTERM, array($srv, 'abort'));
     pcntl_signal(SIGINT, array($srv, 'abort'));
+    $start = time();
+    $last_header = $start;
     while (1) {
+      $current_time = time();
+      if (($last_header + $header_interval) <= $current_time) {
+        $last_header = $current_time;
+        print $srv->output_header();
+      }
       $srv->output_stats_update();
       sleep($interval);
     }
