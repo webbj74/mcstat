@@ -186,7 +186,7 @@ class mcstat_server
 
   function output_stats_session() {
     $output = PHP_EOL . "Session Statistics:" . PHP_EOL;
-    $output .= sprintf("%22s  % 14s  % 14s" . PHP_EOL,
+    $output .= sprintf("%22s  % 15s  % 15s" . PHP_EOL,
       "Statistic", "Total", "Session"
     );
     $last = $this->last_data;
@@ -206,13 +206,17 @@ class mcstat_server
          $t_val = hr_binary($t_val);
          $s_val = hr_binary($s_val);
          break;
+      case 'rusage_user':
+      case 'rusage_system':
+         $t_val = hr_time(sprintf("%10.2f", $t_val));
+         $s_val = hr_time(sprintf("%10.2f", $s_val));
       default:
          $t_val = hr_metric($t_val);
          $s_val = hr_metric($s_val);
          break;
       }
 
-      $output .= sprintf("%22s  % 14s  % 14s" . PHP_EOL, $key, $t_val, $s_val);
+      $output .= sprintf("%22s  % 15s  % 15s" . PHP_EOL, $key, $t_val, $s_val);
     }
 
     return $output;
