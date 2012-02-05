@@ -30,7 +30,10 @@ define('DEFAULT_HEADER_INTERVAL', 40); // lines
 
 declare(ticks=1);
 
-exit(mcstat_main($argv, $argc));
+// If we are running this file directly, exec the session handler
+if (basename($_SERVER['PHP_SELF']) == 'mcstat') {
+  exit(session::main($argv, $argc));
+}
 
 function hr_metric($value) {
   if ($value > 1000000000) {
@@ -224,36 +227,66 @@ class mcstat_server
   }
 }
 
-function mcstat_main($argv, $argc) {
+/**
+ * PHP CLI session handler singleton
+ */
+class session
+{
+  private static $instance;
+  private $count = 0;
 
-  $command = basename($argv[0]);
-  $hostname = ($argc >= 2) ? ($argv[1]) : DEFAULT_HOSTNAME;
-  $port = ($argc >= 3) ? ($argv[2]) : DEFAULT_PORT;
-  $interval = DEFAULT_INTERVAL;
-  $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
+  private function __construct() {}
 
-  $srv = new mcstat_server();
-  if (!($err = $srv->connect($hostname, $port))) {
-    pcntl_signal(SIGTERM, array($srv, 'abort'));
-    pcntl_signal(SIGINT, array($srv, 'abort'));
-    $start = time();
-    $last_header = $start;
-    while (1) {
-      $current_time = time();
-      if (($last_header + $header_interval) <= $current_time) {
-        $last_header = $current_time;
-        print $srv->output_header();
-      }
-      $srv->output_stats_update();
-      sleep($interval);
+  public function increment() {
+    return $this->count++;
+  }
+
+  public function __clone() {
+    trigger_error('Clone is not allowed', E_USER_ERROR);
+  }
+
+  public function __wakeup() {
+    trigger_error('Unserializing is not allowed', E_USER_ERROR);
+  }
+
+  public static function main($argv, $argc) {
+
+    if (!isset(self::$instance)) {
+      echo 'Creating new instance.';
+      $className = __CLASS__;
+      self::$instance = new $className;
     }
-  }
-  else {
-    fprintf(STDERR, "%s: Connection to memcache daemon failed. Error %d: %s\n", $command, $err['errno'], $err['errstr']);
-    return $err['errno'];
-  }
 
-  $srv->disconnect();
-  return 0;
+    $command = basename($argv[0]);
+    $hostname = ($argc >= 2) ? ($argv[1]) : DEFAULT_HOSTNAME;
+    $port = ($argc >= 3) ? ($argv[2]) : DEFAULT_PORT;
+    $interval = DEFAULT_INTERVAL;
+    $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
+
+    $srv = new mcstat_server();
+    if (!($err = $srv->connect($hostname, $port))) {
+      if (extension_loaded('pcntl')) {
+        pcntl_signal(SIGTERM, array($srv, 'abort'));
+        pcntl_signal(SIGINT, array($srv, 'abort'));
+      }
+      $start = time();
+      $last_header = $start;
+      while (1) {
+        $current_time = time();
+        if (($last_header + $header_interval) <= $current_time) {
+          $last_header = $current_time;
+          print $srv->output_header();
+        }
+        $srv->output_stats_update();
+        sleep($interval);
+      }
+    }
+    else {
+      fprintf(STDERR, "%s: Connection to memcache daemon failed. Error %d: %s\n", $command, $err['errno'], $err['errstr']);
+      return $err['errno'];
+    }
+
+    $srv->disconnect();
+  }
 }
 
