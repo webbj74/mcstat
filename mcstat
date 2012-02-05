@@ -274,13 +274,8 @@ class mcstat_reporter
 class mcstat_session
 {
   private static $instance;
-  private $count = 0;
 
   private function __construct() {}
-
-  public function increment() {
-    return $this->count++;
-  }
 
   public function __clone() {
     trigger_error('Clone is not allowed', E_USER_ERROR);
@@ -298,10 +293,11 @@ class mcstat_session
       self::$instance = new $className;
     }
 
-    $command = basename($argv[0]);
-    $hostname = ($argc >= 2) ? ($argv[1]) : DEFAULT_MEMCACHE_HOSTNAME;
-    $port = ($argc >= 3) ? ($argv[2]) : DEFAULT_MEMCACHE_PORT;
-    $interval = DEFAULT_INTERVAL;
+    $arguments = self::parse($argv);
+
+    $hostname = (!empty($arguments[0])) ? ($arguments[0]) : DEFAULT_MEMCACHE_HOSTNAME;
+    $port = (!empty($arguments[1])) ? ($arguments[1]) : DEFAULT_MEMCACHE_PORT;
+    $interval = (!empty($arguments['i'])) ? ($arguments['i']) : DEFAULT_INTERVAL;
     $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
 
     $sess = new mcstat_reporter($hostname, $port);
@@ -328,6 +324,54 @@ class mcstat_session
     }
 
     $sess->disconnect();
+  }
+
+  function parse($argv) {
+    $out = array();
+    $synonym = array(
+      'h' => 'help',
+      'i' => 'interval',
+      '?' => 'help',
+    );
+    $out['_'] = array_shift($argv);
+    for ($i = 0; $i < count($argv); $i++) {
+      $arg = $argv[$i];
+      if (substr($arg, 0, 2) == '--') {
+        $eqPos = strpos($arg, '=');
+        if ($eqPos === false) {
+          $key = substr($arg, 2);
+          $out[$key] = isset($out[$key]) ? $out[$key] : true;
+        }
+        else {
+          $key = substr($arg, 2, $eqPos - 2);
+          $out[$key] = substr($arg, $eqPos + 1);
+          $key = null;
+        }
+      }
+      else if (substr($arg, 0, 1) == '-') {
+        if (substr($arg, 2, 1) == '=') {
+          $key = $synonym[substr($arg, 1, 1)];
+          $out[$key] = substr($arg, 3);
+          $key = null;
+        }
+        else {
+          $chars = str_split(substr($arg, 1));
+          foreach ($chars as $char) {
+            $key = $synonym[$char];
+            $out[$key] = isset($out[$key]) ? $out[$key] : '_';
+          }
+        }
+      }
+      else {
+        $out[] = $arg;
+      }
+
+      if ($key == 'interval') {
+        $out['interval'] = $argv[++$i];
+        $key = null;
+      }
+    }
+    return $out;
   }
 }
 
