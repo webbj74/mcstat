@@ -293,11 +293,11 @@ class mcstat_session
       self::$instance = new $className;
     }
 
-    $arguments = self::parse($argv);
+    $args = self::parse($argv);
 
-    $hostname = (!empty($arguments[0])) ? ($arguments[0]) : DEFAULT_MEMCACHE_HOSTNAME;
-    $port = (!empty($arguments[1])) ? ($arguments[1]) : DEFAULT_MEMCACHE_PORT;
-    $interval = (!empty($arguments['i'])) ? ($arguments['i']) : DEFAULT_INTERVAL;
+    $hostname = (!empty($args[0])) ? ($args[0]) : DEFAULT_MEMCACHE_HOSTNAME;
+    $port = (!empty($args[1])) ? ($args[1]) : DEFAULT_MEMCACHE_PORT;
+    $interval = (!empty($args['interval'])) ? ($args['interval']) : DEFAULT_INTERVAL;
     $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
 
     $sess = new mcstat_reporter($hostname, $port);
