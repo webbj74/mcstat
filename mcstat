@@ -36,7 +36,7 @@ declare(ticks=1);
 
 
 // If we are running this file directly, exec the session handler
-if (basename($_SERVER['PHP_SELF']) == 'mcstat') {
+if (PHP_SAPI === 'cli' && basename($argv[0]) == basename(__FILE__)) {
   exit(mcstat_session::main($argv, $argc));
 }
 
