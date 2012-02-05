@@ -23,18 +23,27 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
+
 define('DEFAULT_MEMCACHE_HOSTNAME', 'localhost');
 define('DEFAULT_MEMCACHE_PORT', 11211);
 define('DEFAULT_INTERVAL', 5); // seconds
 define('DEFAULT_HEADER_INTERVAL', 40); // lines
 
+
+// Declaration of ticks is a requirement for PCNTL signal handling.
 declare(ticks=1);
+
 
 // If we are running this file directly, exec the session handler
 if (basename($_SERVER['PHP_SELF']) == 'mcstat') {
   exit(mcstat_session::main($argv, $argc));
 }
 
+
+/**
+ * Utility for converting a value to a human readable number in metric units.
+ */
 function hr_metric($value) {
   if ($value > 1000000000) {
     $value = sprintf("%dG", ($value/1000000000));
@@ -48,6 +57,10 @@ function hr_metric($value) {
   return $value;
 }
 
+
+/**
+ * Utility for converting a value to a human readable number in binary units.
+ */
 function hr_binary($value) {
   if ($value > 1073741824) {
     $value = sprintf("%dG", ($value/1073741824));
@@ -61,6 +74,10 @@ function hr_binary($value) {
   return $value;
 }
 
+
+/**
+ * Utility for converting a number of seconds into human readable time.
+ */
 function hr_time($seconds) {
   $time_interval = array(
     'd' => 86400,
@@ -75,6 +92,7 @@ function hr_time($seconds) {
   }
   return $output . $seconds . 's';
 }
+
 
 /**
  * Memcache protocol client
