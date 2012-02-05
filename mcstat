@@ -23,8 +23,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-define('DEFAULT_HOSTNAME', 'localhost');
-define('DEFAULT_PORT', 11211);
+define('DEFAULT_MEMCACHE_HOSTNAME', 'localhost');
+define('DEFAULT_MEMCACHE_PORT', 11211);
 define('DEFAULT_INTERVAL', 5); // seconds
 define('DEFAULT_HEADER_INTERVAL', 40); // lines
 
@@ -76,24 +76,23 @@ function hr_time($seconds) {
   return $output . $seconds . 's';
 }
 
-class mcstat_reporter
+/**
+ * Memcache protocol client
+ */
+class mcstat_client
 {
-  protected $socket_ptr = null;
-  protected $starting_data = null;
-  protected $last_data = null;
+  private $socket_ptr = null;
+  private $hostname = null;
+  private $port = null;
 
-  function __construct() {
-    $this->last_data = array(
-      'cmd_get' => 0,
-      'get_hits' => 0,
-      'get_misses' => 0,
-      'bytes_read' => 0,
-      'bytes_written' => 0,
-    );
+  function __construct($hostname = DEFAULT_MEMCACHE_HOST, $port = DEFAULT_MEMCACHE_PORT) {
+    $this->hostname = $hostname;
+    $this->port = $port;
+    $this->connect();
   }
 
-  function connect($hostname, $port) {
-    $this->socket_ptr = fsockopen($hostname, $port, $errno, $errstr, 30);
+  function connect() {
+    $this->socket_ptr = fsockopen($this->hostname, $this->port, $errno, $errstr, 30);
     if (!$this->socket_ptr) {
       return array('errno' => $errno, 'errstr' => $errstr);
     }
@@ -104,14 +103,6 @@ class mcstat_reporter
       fwrite($this->socket_ptr, "quit\r\n");
       fclose($this->socket_ptr);
       print 'Connection closed' . PHP_EOL;
-    }
-  }
-
-  function abort($signal) {
-    if ($signal === SIGINT || $signal === SIGTERM) {
-      print $this->output_stats_session();
-      $this->disconnect();
-      exit();
     }
   }
 
@@ -126,6 +117,34 @@ class mcstat_reporter
       $data[$key] = rtrim($value);
     }
     return $data;
+  }
+
+}
+
+
+class mcstat_reporter
+{
+  protected $server = null;
+  protected $starting_data = null;
+  protected $last_data = null;
+
+  function __construct($hostname, $port) {
+    $this->last_data = array(
+      'cmd_get' => 0,
+      'get_hits' => 0,
+      'get_misses' => 0,
+      'bytes_read' => 0,
+      'bytes_written' => 0,
+    );
+    $this->server = new mcstat_client($hostname, $port);
+  }
+
+  function abort($signal) {
+    if ($signal === SIGINT || $signal === SIGTERM) {
+      print $this->output_stats_session();
+      $this->server->disconnect();
+      exit();
+    }
   }
 
   function output_header() {
@@ -146,7 +165,7 @@ class mcstat_reporter
 
   function output_stats_update() {
     $last = $this->last_data;
-    $data = $start = $this->get_all_stats();
+    $data = $start = $this->server->get_all_stats();
 
     $data['time_string'] = strftime("%T", $data['time']);
     $data['get_total'] = $data['cmd_get'] - $last['cmd_get'];
@@ -186,6 +205,10 @@ class mcstat_reporter
     print $output;
 
     $this->last_data = $data;
+  }
+
+  function disconnect() {
+    $this->server->disconnect();
   }
 
   function output_stats_session() {
@@ -258,16 +281,16 @@ class mcstat_session
     }
 
     $command = basename($argv[0]);
-    $hostname = ($argc >= 2) ? ($argv[1]) : DEFAULT_HOSTNAME;
-    $port = ($argc >= 3) ? ($argv[2]) : DEFAULT_PORT;
+    $hostname = ($argc >= 2) ? ($argv[1]) : DEFAULT_MEMCACHE_HOSTNAME;
+    $port = ($argc >= 3) ? ($argv[2]) : DEFAULT_MEMCACHE_PORT;
     $interval = DEFAULT_INTERVAL;
     $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
 
-    $srv = new mcstat_reporter();
-    if (!($err = $srv->connect($hostname, $port))) {
+    $sess = new mcstat_reporter($hostname, $port);
+    if ($sess) {
       if (extension_loaded('pcntl')) {
-        pcntl_signal(SIGTERM, array($srv, 'abort'));
-        pcntl_signal(SIGINT, array($srv, 'abort'));
+        pcntl_signal(SIGTERM, array($sess, 'abort'));
+        pcntl_signal(SIGINT, array($sess, 'abort'));
       }
       $start = time();
       $last_header = $start;
@@ -275,9 +298,9 @@ class mcstat_session
         $current_time = time();
         if (($last_header + $header_interval) <= $current_time) {
           $last_header = $current_time;
-          print $srv->output_header();
+          print $sess->output_header();
         }
-        $srv->output_stats_update();
+        $sess->output_stats_update();
         sleep($interval);
       }
     }
@@ -286,7 +309,7 @@ class mcstat_session
       return $err['errno'];
     }
 
-    $srv->disconnect();
+    $sess->disconnect();
   }
 }
 
