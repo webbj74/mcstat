@@ -32,7 +32,7 @@ declare(ticks=1);
 
 // If we are running this file directly, exec the session handler
 if (basename($_SERVER['PHP_SELF']) == 'mcstat') {
-  exit(session::main($argv, $argc));
+  exit(mcstat_session::main($argv, $argc));
 }
 
 function hr_metric($value) {
@@ -76,7 +76,7 @@ function hr_time($seconds) {
   return $output . $seconds . 's';
 }
 
-class mcstat_server
+class mcstat_reporter
 {
   protected $socket_ptr = null;
   protected $starting_data = null;
@@ -230,7 +230,7 @@ class mcstat_server
 /**
  * PHP CLI session handler singleton
  */
-class session
+class mcstat_session
 {
   private static $instance;
   private $count = 0;
@@ -263,7 +263,7 @@ class session
     $interval = DEFAULT_INTERVAL;
     $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
 
-    $srv = new mcstat_server();
+    $srv = new mcstat_reporter();
     if (!($err = $srv->connect($hostname, $port))) {
       if (extension_loaded('pcntl')) {
         pcntl_signal(SIGTERM, array($srv, 'abort'));
