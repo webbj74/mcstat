@@ -165,8 +165,8 @@ class mcstat_reporter
     $this->server = new mcstat_client($hostname, $port);
   }
 
-  function abort($signal) {
-    if ($signal === SIGINT || $signal === SIGTERM) {
+  function abort($signal = -1) {
+    if ($signal === SIGINT || $signal === SIGTERM || $signal === -1) {
       print $this->output_stats_session();
       $this->server->disconnect();
       exit();
@@ -226,11 +226,19 @@ class mcstat_reporter
       unset($start['time']);
       unset($start['pid']);
       $this->starting_data = $start;
+      $this->min_connections = $data['curr_connections'];
+      $this->max_connections = $data['curr_connections'];
     }
 
     print $output;
 
     $this->last_data = $data;
+    if ($data['curr_connections'] < $this->min_connections) {
+      $this->min_connections = $data['curr_connections'];
+    }
+    else if ($data['curr_connections'] > $this->max_connections) {
+      $this->max_connections = $data['curr_connections'];
+    }
   }
 
   function disconnect() {
@@ -249,6 +257,15 @@ class mcstat_reporter
       $t_val = $value;
       $s_val = $last[$key] - $start[$key];
       switch ($key) {
+      case 'curr_connections':
+         $t_val = " ";
+         if ($this->min_connections != $this->max_connections) {
+           $s_val = sprintf("%d-%d", $this->min_connections, $this->max_connections);
+         }
+         else {
+           $s_val = sprintf("%d", $this->min_connections);
+         }
+         break;
       case 'uptime':
          $t_val = hr_time($t_val);
          $s_val = hr_time($s_val);
@@ -268,7 +285,6 @@ class mcstat_reporter
          $s_val = hr_metric($s_val);
          break;
       }
-
       $output .= sprintf("%22s  % 15s  % 15s" . PHP_EOL, $key, $t_val, $s_val);
     }
 
@@ -341,6 +357,7 @@ class mcstat_session
           $sess->output_stats_update();
           sleep($interval);
         }
+        $sess->abort();
       }
       else {
         fprintf(STDERR, "%s: Connection to memcache daemon failed. Error %d: %s\n", $command, $err['errno'], $err['errstr']);
