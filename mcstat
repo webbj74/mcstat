@@ -1,6 +1,6 @@
 #!/usr/bin/env php
 <?php
-
+ini_set('display_errors', 0);
 /**
  * @file
  * mcstat reports memcache daemon statistics
@@ -288,7 +288,6 @@ class mcstat_session
   public static function main($argv, $argc) {
 
     if (!isset(self::$instance)) {
-      echo 'Creating new instance.';
       $className = __CLASS__;
       self::$instance = new $className;
     }
@@ -299,6 +298,8 @@ class mcstat_session
     $port = (!empty($args[1])) ? ($args[1]) : DEFAULT_MEMCACHE_PORT;
     $interval = (!empty($args['interval'])) ? ($args['interval']) : DEFAULT_INTERVAL;
     $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
+
+    date_default_timezone_set();
 
     $sess = new mcstat_reporter($hostname, $port);
     if ($sess) {
