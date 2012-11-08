@@ -228,6 +228,8 @@ class mcstat_reporter
       $this->starting_data = $start;
       $this->min_connections = $data['curr_connections'];
       $this->max_connections = $data['curr_connections'];
+      $this->min_items = $data['curr_items'];
+      $this->max_items = $data['curr_items'];
     }
 
     print $output;
@@ -238,6 +240,12 @@ class mcstat_reporter
     }
     else if ($data['curr_connections'] > $this->max_connections) {
       $this->max_connections = $data['curr_connections'];
+    }
+    if ($data['curr_items'] < $this->min_items) {
+      $this->min_items = $data['curr_items'];
+    }
+    else if ($data['curr_items'] > $this->max_items) {
+      $this->max_items = $data['curr_items'];
     }
   }
 
@@ -264,6 +272,15 @@ class mcstat_reporter
          }
          else {
            $s_val = sprintf("%d", $this->min_connections);
+         }
+         break;
+      case 'curr_items':
+         $t_val = " ";
+         if ($this->min_items != $this->max_items) {
+           $s_val = sprintf("%d-%d", $this->min_items, $this->max_items);
+         }
+         else {
+           $s_val = sprintf("%d", $this->min_items);
          }
          break;
       case 'uptime':
