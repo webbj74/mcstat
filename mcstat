@@ -40,6 +40,9 @@ if (PHP_SAPI === 'cli' && basename($argv[0]) == basename(__FILE__)) {
   exit(mcstat_session::main($argv, $argc));
 }
 
+function mcstat_exception_error_handler($errno, $errstr, $errfile, $errline) {
+  throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+}
 
 /**
  * Utility for converting a value to a human readable number in metric units.
@@ -110,10 +113,10 @@ class mcstat_client
   }
 
   function connect() {
+    // Throw an exception if fsockopen emits a warning
+    set_error_handler("mcstat_exception_error_handler");
     $this->socket_ptr = fsockopen($this->hostname, $this->port, $errno, $errstr, 30);
-    if (!$this->socket_ptr) {
-      return array('errno' => $errno, 'errstr' => $errstr);
-    }
+    restore_error_handler();
   }
 
   function disconnect() {
@@ -126,13 +129,18 @@ class mcstat_client
 
   function get_all_stats() {
     $data = array();
-    fwrite($this->socket_ptr, "stats\r\n");
-    while ($line = fgets($this->socket_ptr, 128)) {
-      if (preg_match('/^END/', $line)) {
-        break;
+    if ($this->socket_ptr) {
+      fwrite($this->socket_ptr, "stats\r\n");
+      while ($line = fgets($this->socket_ptr, 128)) {
+        if (preg_match('/^END/', $line)) {
+          break;
+        }
+        list($stat,$key,$value) = preg_split('/[\s]+/', $line, 3);
+        $data[$key] = rtrim($value);
       }
-      list($stat,$key,$value) = preg_split('/[\s]+/', $line, 3);
-      $data[$key] = rtrim($value);
+    }
+    else {
+      throw new Exception("Connection handle is invalid.");
     }
     return $data;
   }
@@ -285,12 +293,22 @@ class mcstat_session
     trigger_error('Unserializing is not allowed', E_USER_ERROR);
   }
 
+  public function __shutdown() {
+    echo "Exiting." . PHP_EOL;
+  }
+
+
   public static function main($argv, $argc) {
 
     if (!isset(self::$instance)) {
       $className = __CLASS__;
       self::$instance = new $className;
     }
+
+    register_shutdown_function(array(self::$instance, '__shutdown'));
+
+    // set_error_handler(array(self::$instance, '__error_handler'));
+
 
     $args = self::parse($argv);
 
@@ -299,35 +317,44 @@ class mcstat_session
     $interval = (!empty($args['interval'])) ? ($args['interval']) : DEFAULT_INTERVAL;
     $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
 
-    date_default_timezone_set();
+    date_default_timezone_set('UTC');
 
-    $sess = new mcstat_reporter($hostname, $port);
-    if ($sess) {
-      if (extension_loaded('pcntl')) {
-        pcntl_signal(SIGTERM, array($sess, 'abort'));
-        pcntl_signal(SIGINT, array($sess, 'abort'));
-      }
-      $start = time();
-      $last_header = $start;
-      while (1) {
-        $current_time = time();
-        if (($last_header + $header_interval) <= $current_time) {
-          $last_header = $current_time;
-          print $sess->output_header();
+    try {
+      $sess = new mcstat_reporter($hostname, $port);
+    
+      if ($sess) {
+        if (extension_loaded('pcntl')) {
+          pcntl_signal(SIGTERM, array($sess, 'abort'));
+          pcntl_signal(SIGINT, array($sess, 'abort'));
         }
-        $sess->output_stats_update();
-        sleep($interval);
+        else {
+          echo "Warning: The pcntl extension is not loaded. No memcache summary will be displayed." . PHP_EOL;
+        }
+        $start = time();
+        $last_header = $start;
+        while (1) {
+          $current_time = time();
+          if (($last_header + $header_interval) <= $current_time) {
+            $last_header = $current_time;
+            print $sess->output_header();
+          }
+          $sess->output_stats_update();
+          sleep($interval);
+        }
       }
-    }
-    else {
-      fprintf(STDERR, "%s: Connection to memcache daemon failed. Error %d: %s\n", $command, $err['errno'], $err['errstr']);
-      return $err['errno'];
-    }
+      else {
+        fprintf(STDERR, "%s: Connection to memcache daemon failed. Error %d: %s\n", $command, $err['errno'], $err['errstr']);
+        return $err['errno'];
+      }
 
-    $sess->disconnect();
+      $sess->disconnect();
+    }
+    catch (Exception $e) {
+      fprintf(STDERR, '%s' . PHP_EOL, $e->getMessage());
+    }
   }
 
-  function parse($argv) {
+  public static function parse($argv) {
     $out = array();
     $synonym = array(
       'h' => 'help',
@@ -367,7 +394,7 @@ class mcstat_session
         $out[] = $arg;
       }
 
-      if ($key == 'interval') {
+      if (isset($key) && $key == 'interval') {
         $out['interval'] = $argv[++$i];
         $key = null;
       }
