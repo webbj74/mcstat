@@ -171,7 +171,7 @@ class mcstat_reporter
 
   function output_header() {
     return sprintf(
-      "%8s  %4s  % 6s  % 5s  % 5s  % 5s  % 6s  % 6s  % 6s  % 6s" . PHP_EOL,
+      "%8s  %4s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s" . PHP_EOL,
       'time',
       'cnct',
       'used',
@@ -199,7 +199,7 @@ class mcstat_reporter
     $data['writes_total'] = $data['bytes_written'] - $last['bytes_written'];
 
     $output = sprintf(
-      "%8s  %4d  % 6s  % 5s  % 5s  % 5s  % 6.2f  % 6.2f  % 6s  % 6s" . PHP_EOL,
+      "%8s  %4d  % 6s  % 6s  % 6s  % 6s  % 6.2f  % 6.2f  % 6s  % 6s" . PHP_EOL,
       $data['time_string'],
       $data['curr_connections'],
       hr_binary($data['bytes']),
