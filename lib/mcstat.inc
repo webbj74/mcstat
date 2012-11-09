@@ -38,14 +38,17 @@ function mcstat_exception_error_handler($errno, $errstr, $errfile, $errline) {
  * Utility for converting a value to a human readable number in metric units.
  */
 function hr_metric($value) {
-  if ($value > 1000000000) {
-    $value = sprintf("%dG", ($value/1000000000));
+  if ($value > 1000000000000.0) {
+    $value = sprintf("%4.1fT", ($value/1000000000000.0));
+  }
+  else if ($value > 1000000000) {
+    $value = sprintf("%4.1fB", ($value/1000000000.0));
   }
   else if ($value > 1000000) {
-    $value = sprintf("%dM", ($value/1000000));
+    $value = sprintf("%4.1fM", ($value/1000000.0));
   }
   else if ($value > 1000) {
-    $value = sprintf("%dk", ($value/1000));
+    $value = sprintf("%4.1fk", ($value/1000.0));
   }
   return $value;
 }
@@ -55,14 +58,17 @@ function hr_metric($value) {
  * Utility for converting a value to a human readable number in binary units.
  */
 function hr_binary($value) {
-  if ($value > 1073741824) {
-    $value = sprintf("%dG", ($value/1073741824));
+  if ($value > 1099511627776) {
+    $value = sprintf("%4.1fT", ($value/1099511627776.0));
+  }
+  else if ($value > 1073741824) {
+    $value = sprintf("%4.1fG", ($value/1073741824.0));
   }
   else if ($value > 1048576) {
-    $value = sprintf("%dM", ($value/1048576));
+    $value = sprintf("%4.1fM", ($value/1048576.0));
   }
   else if ($value > 1024) {
-    $value = sprintf("%dk", ($value/1024));
+    $value = sprintf("%4.1fk", ($value/1024.0));
   }
   return $value;
 }
@@ -165,7 +171,7 @@ class mcstat_reporter
 
   function output_header() {
     return sprintf(
-      "%8s  %4s  % 5s  % 5s  % 5s  % 5s  % 6s  % 6s  % 5s  % 5s" . PHP_EOL,
+      "%8s  %4s  % 6s  % 5s  % 5s  % 5s  % 6s  % 6s  % 6s  % 6s" . PHP_EOL,
       'time',
       'cnct',
       'used',
@@ -193,7 +199,7 @@ class mcstat_reporter
     $data['writes_total'] = $data['bytes_written'] - $last['bytes_written'];
 
     $output = sprintf(
-      "%8s  %4d  % 5s  % 5s  % 5s  % 5s  % 6.2f  % 6.2f  % 5s  % 5s" . PHP_EOL,
+      "%8s  %4d  % 6s  % 5s  % 5s  % 5s  % 6.2f  % 6.2f  % 6s  % 6s" . PHP_EOL,
       $data['time_string'],
       $data['curr_connections'],
       hr_binary($data['bytes']),
@@ -245,7 +251,7 @@ class mcstat_reporter
 
   function output_stats_session() {
     $output = PHP_EOL . "Session Statistics:" . PHP_EOL;
-    $output .= sprintf("%22s  % 15s  % 15s" . PHP_EOL,
+    $output .= sprintf("%22s  % 16s  % 16s" . PHP_EOL,
       "Statistic", "Total", "Session"
     );
     $last = $this->last_data;
@@ -292,7 +298,7 @@ class mcstat_reporter
          $s_val = hr_metric($s_val);
          break;
       }
-      $output .= sprintf("%22s  % 15s  % 15s" . PHP_EOL, $key, $t_val, $s_val);
+      $output .= sprintf("%22s  % 16s  % 16s" . PHP_EOL, $key, $t_val, $s_val);
     }
 
     return $output;
