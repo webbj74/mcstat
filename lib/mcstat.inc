@@ -293,6 +293,7 @@ class mcstat_reporter
       case 'rusage_system':
          $t_val = hr_time(sprintf("%10.2f", $t_val));
          $s_val = hr_time(sprintf("%10.2f", $s_val));
+         break;
       default:
          $t_val = hr_metric($t_val);
          $s_val = hr_metric($s_val);
