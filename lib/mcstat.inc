@@ -42,7 +42,7 @@ function hr_metric($value) {
     $value = sprintf("%4.1fT", ($value/1000000000000.0));
   }
   else if ($value > 1000000000) {
-    $value = sprintf("%4.1fB", ($value/1000000000.0));
+    $value = sprintf("%4.1fG", ($value/1000000000.0));
   }
   else if ($value > 1000000) {
     $value = sprintf("%4.1fM", ($value/1000000.0));
