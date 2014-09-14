@@ -1,0 +1,16 @@
+{
+    "name": "webbj74/mcstat",
+    "description": "Reports memcache daemon statistics.",
+    "keywords": ["memcache", "memcached"],
+    "homepage": "https://github.com/webbj74/mcstat",
+    "license": "GPL-3.0",
+    "authors": [
+        {
+            "name": "See contributors",
+            "homepage": "https://github.com/webbj74/mcstat/graphs/contributors"
+        }
+    ],
+    "require": {
+        "php": ">=5.2.0"
+    }
+}
