@@ -171,15 +171,17 @@ class mcstat_reporter
 
   function output_header() {
     return sprintf(
-      "%8s  %4s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s" . PHP_EOL,
+      "%8s  %4s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s" . PHP_EOL,
       'time',
       'cnct',
       'used',
       'gets',
       'hits',
       'miss',
-      'hit%',
+      'sets',
+      'evic',
       'miss%',
+      'evic%',
       'in',
       'out'
     );
@@ -191,23 +193,28 @@ class mcstat_reporter
 
     $data['time_string'] = strftime("%T", $data['time']);
     $data['get_total'] = $data['cmd_get'] - $last['cmd_get'];
+    $data['set_total'] = $data['cmd_set'] - $last['cmd_set'];
+    $data['evictions_total'] = $data['evictions'] - $last['evictions'];
     $data['get_hits_total'] = $data['get_hits'] - $last['get_hits'];
     $data['get_misses_total'] = $data['get_misses'] - $last['get_misses'];
     $data['get_hits_percentage'] = (($data['get_total'] > 0) ? (($data['get_hits'] - $last['get_hits'])/$data['get_total']) : 0) * 100.0;
     $data['get_misses_percentage'] = (($data['get_total'] > 0) ? (($data['get_misses'] - $last['get_misses'])/$data['get_total']) : 0) * 100.0;
+    $data['set_evictions_percentage'] = (($data['set_total'] > 0) ? ($data['evictions_total']/$data['set_total']) : 0) * 100.0;
     $data['reads_total'] = $data['bytes_read'] - $last['bytes_read'];
     $data['writes_total'] = $data['bytes_written'] - $last['bytes_written'];
 
     $output = sprintf(
-      "%8s  %4d  % 6s  % 6s  % 6s  % 6s  % 6.2f  % 6.2f  % 6s  % 6s" . PHP_EOL,
+      "%8s  %4d  % 6s  % 6s  % 6s  % 6s  % 6s  % 6s  % 6.2f  % 6.2f  % 6s  % 6s" . PHP_EOL,
       $data['time_string'],
       $data['curr_connections'],
       hr_binary($data['bytes']),
       hr_metric($data['get_total']),
       hr_metric($data['get_hits_total']),
       hr_metric($data['get_misses_total']),
-      $data['get_hits_percentage'],
+      hr_metric($data['set_total']),
+      hr_metric($data['evictions_total']),
       $data['get_misses_percentage'],
+      $data['set_evictions_percentage'],
       hr_binary($data['reads_total']),
       hr_binary($data['writes_total'])
     );
