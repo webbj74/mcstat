@@ -98,47 +98,44 @@ function hr_time($seconds) {
  */
 class mcstat_client
 {
-  private $socket_ptr = null;
+  private $memcached = null;
   private $hostname = null;
   private $port = null;
+  private $username = null;
+  private $password = null;
 
-  function __construct($hostname = DEFAULT_MEMCACHE_HOST, $port = DEFAULT_MEMCACHE_PORT) {
+  function __construct($hostname, $port, $username, $password) {
+    if (!extension_loaded('memcached')) {
+      throw new Exception("The Memcached PHP extension is not loaded. This extension is required for mcstat to run.");
+    }
+
+    $this->memcached = new Memcached();
     $this->hostname = $hostname;
     $this->port = $port;
+    $this->username = $username;
+    $this->password = $password;
     $this->connect();
   }
 
   function connect() {
-    // Throw an exception if fsockopen emits a warning
+    // Throw an exception if client emits a warning.
     set_error_handler("mcstat_exception_error_handler");
-    $this->socket_ptr = fsockopen($this->hostname, $this->port, $errno, $errstr, 30);
+    $this->memcached->addServer($this->hostname, $this->port);
+    $this->memcached->setOption(Memcached::OPT_BINARY_PROTOCOL, true);
+
+    if (!is_null($this->username) && !is_null($this->password)) {
+      $this->memcached->setSaslAuthData($this->username, $this->password);
+    }
     restore_error_handler();
   }
 
   function disconnect() {
-    if ($this->socket_ptr) {
-      fwrite($this->socket_ptr, "quit\r\n");
-      fclose($this->socket_ptr);
-      print 'Connection closed' . PHP_EOL;
-    }
+    $this->memcached->quit();
+    print 'Connection closed' . PHP_EOL;
   }
 
   function get_all_stats() {
-    $data = array();
-    if ($this->socket_ptr) {
-      fwrite($this->socket_ptr, "stats\r\n");
-      while ($line = fgets($this->socket_ptr, 128)) {
-        if (preg_match('/^END/', $line)) {
-          break;
-        }
-        list($stat,$key,$value) = preg_split('/[\s]+/', $line, 3);
-        $data[$key] = rtrim($value);
-      }
-    }
-    else {
-      throw new Exception("Connection handle is invalid.");
-    }
-    return $data;
+    return $this->memcached->getStats()["{$this->hostname}:{$this->port}"];
   }
 
 }
@@ -150,7 +147,7 @@ class mcstat_reporter
   protected $starting_data = null;
   protected $last_data = null;
 
-  function __construct($hostname, $port) {
+  function __construct($hostname, $port, $username, $password) {
     $this->last_data = array(
       'cmd_get' => 0,
       'get_hits' => 0,
@@ -158,7 +155,7 @@ class mcstat_reporter
       'bytes_read' => 0,
       'bytes_written' => 0,
     );
-    $this->server = new mcstat_client($hostname, $port);
+    $this->server = new mcstat_client($hostname, $port, $username, $password);
   }
 
   function abort($signal = -1) {
@@ -344,20 +341,19 @@ class mcstat_session
 
     register_shutdown_function(array(self::$instance, '__shutdown'));
 
-    // set_error_handler(array(self::$instance, '__error_handler'));
-
-
     $args = self::parse($argv);
 
     $hostname = (!empty($args[0])) ? ($args[0]) : DEFAULT_MEMCACHE_HOSTNAME;
     $port = (!empty($args[1])) ? ($args[1]) : DEFAULT_MEMCACHE_PORT;
+    $username = (!empty($args[2])) ? ($args[2]) : null;
+    $password = (!empty($args[3])) ? ($args[3]) : null;
     $interval = (!empty($args['interval'])) ? ($args['interval']) : DEFAULT_INTERVAL;
     $header_interval = $interval * DEFAULT_HEADER_INTERVAL;
 
     date_default_timezone_set('UTC');
 
     try {
-      $sess = new mcstat_reporter($hostname, $port);
+      $sess = new mcstat_reporter($hostname, $port, $username, $password);
     
       if ($sess) {
         if (extension_loaded('pcntl')) {
